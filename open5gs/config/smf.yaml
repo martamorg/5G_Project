@@ -17,6 +17,8 @@ smf:
         dnn: internet
       - addr: 10.46.0.1/16
         dnn: mec
+      - addr: 10.47.0.1/16
+        dnn: test
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -38,6 +40,8 @@ upf:
       - addr: 192.168.0.112
         dnn: internet
       - addr: 192.168.0.113
+        dnn: mec
+      - addr: 192.168.0.114
         dnn: mec
 
 #

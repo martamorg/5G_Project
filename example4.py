@@ -31,7 +31,7 @@ if __name__ == "__main__":
     ip = 112
     subnet = 45
     for i in range(int(n_slices)):  # repeats n_slices times, not n-1
-        dnn = input('enter dnn for slice ' + str(i+1) + ': ')
+        dnn = input('enter dnn for slice ' + str(i + 1) + ': ')
         bw = input('enter bandwidth (Mbps) for slice ' + str(i + 1) + ': ')
         slices[i] = {
             'dnn': dnn,
@@ -74,7 +74,7 @@ if __name__ == "__main__":
             contents['nssf']['nsi'][i] = {
                 'addr': '127.0.0.10',
                 'port': 7777,
-                's_nssai': {'sst': i+1, 'sd': 1}
+                's_nssai': {'sst': i + 1, 'sd': 1}
             }
     # fix output file
     with open('./open5gs/config/nssf.yaml', 'w') as dump_file:
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         contents['amf']['plmn_support'][0]['s_nssai'].clear()
         contents['amf']['plmn_support'][0]['s_nssai'].extend([None] * int(n_slices))
         for i in range(int(n_slices)):
-            contents['amf']['plmn_support'][0]['s_nssai'][i] = {'sst': i+1, 'sd': 1}
+            contents['amf']['plmn_support'][0]['s_nssai'][i] = {'sst': i + 1, 'sd': 1}
     # fix output file
     with open('./open5gs/config/amf.yaml', 'w') as dump_file:
         yaml.dump(contents, dump_file)
@@ -143,7 +143,6 @@ if __name__ == "__main__":
         # fix output file into correct folder
         with open('./open5gs/config/upf_' + slices[i]['dnn'] + '.yaml', 'w') as dump_file:
             yaml.dump(contents, dump_file)
-
 
     info("*** Add controller\n")
     net.addController("c0")
@@ -226,7 +225,8 @@ if __name__ == "__main__":
                 "devices": "/dev/net/tun:/dev/net/tun:rwm"
             },
         )
-        net.addLink(host, s2, bw=1000, delay="1ms", intfName1="upf_" + slices[i]['dnn'] + "-s2", intfName2="s2-upf_" + slices[i]['dnn'])
+        net.addLink(host, s2, bw=1000, delay="1ms", intfName1="upf_" + slices[i]['dnn'] + "-s2",
+                    intfName2="s2-upf_" + slices[i]['dnn'])
 
     info("*** Adding gNB\n")
     env["COMPONENT_NAME"] = "gnb"
@@ -349,6 +349,20 @@ if __name__ == "__main__":
     if not AUTOTEST_MODE:
         # spawnXtermDocker("open5gs")
         # spawnXtermDocker("gnb")
+        # CLI(net)
+        info("\n*** Waiting for the network to be ready... it can take some seconds\n")
+        time.sleep(30)
+        output = ue.cmd('ifconfig')
+
+        while f"uesimtun{int(n_slices) - 1}" not in output:
+            info("\n*** Still waiting...\n")
+            time.sleep(5)
+            output = ue.cmd('ifconfig')
+
+        info("\n*** Testing connections\n")
+        output = ue.cmd('ifconfig')
+        info("\n*** Available interfaces:\n")
+        print(output)
         CLI(net)
 
     net.stop()

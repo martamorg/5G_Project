@@ -351,7 +351,7 @@ if __name__ == "__main__":
         # spawnXtermDocker("gnb")
         # CLI(net)
         info("\n*** Waiting for the network to be ready... it can take some seconds\n")
-        time.sleep(30)
+        time.sleep(20)
         output = ue.cmd('ifconfig')
 
         while f"uesimtun{int(n_slices) - 1}" not in output:
@@ -363,6 +363,21 @@ if __name__ == "__main__":
         output = ue.cmd('ifconfig')
         info("\n*** Available interfaces:\n")
         print(output)
+
+        info("\n*** Checking connectivity:\n")
+        for i in range(int(n_slices)):
+            output = ue.cmd(f'ping -c 3 -n -I uesimtun{i} www.google.com')
+            print(output)
+
+        info("\n*** Checking bandwidths:\n")
+        for i in range(int(n_slices)):
+            subnet = slices[i]['subnet']
+            octets = subnet.split(".")
+            octets[3] = str(int(octets[3]) + 1)
+            new_address = ".".join(octets)
+            output = ue.cmd(f'iperf3 -c {subnet} -B {new_address} -t 5')
+            print(output)
+
         CLI(net)
 
     net.stop()

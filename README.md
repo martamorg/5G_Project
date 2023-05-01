@@ -1,108 +1,108 @@
-Emulate a 5G network deployment in comnetsemu.
-Demonstrate distributed UPF deployment and slice-base UPF selection.
+# Automatic creation of slices
+Based on the already existing [5G network emulator](https://github.com/fabrizio-granelli/comnetsemu_5Gnet), with an added new functionality:
+**Implementation of a command line interaction for automatic slice creation.** 
+
+## Prerequisites
 
 Tested Versions:
 - Comnetsemu: v0.3.0 (Installed following either "Option 1" or "Option 3" from [here](https://git.comnets.net/public-repo/comnetsemu) )
 - UERANSIM: v3.2.6
 - Open5gs: v2.4.2
 
-Python packages:
+Necessary Python packages:
 - pymongo
 - json
+- pyyaml
 
 ## Build Instructions
 
-Clone repository in the comnetsemu VM.
+1. Clone repository in the comnetsemu VM, into ~/comnetsemu/app folder.
+```
+cd ~/comnetsemu/app 
+git clone https://github.com/martamorg/5G_Project.git
+```
+**Note:** make sure variables **prj_folder** and **mongodb_folder** (lines 22 and 23 of the example script) are correct. They may change depending on your installation method or original repository.
 
-Build the necessary docker images:
+2. Download the necessary docker images:
 
 ```
 cd build
-./build.sh
-```
-
-Or alternatively download them from DockerHub
-
-```
-cd ../open5gs
 ./dockerhub_pull.sh
 ```
 
 
-## Run experiments
+## Run automatic slice creation simulator
 
-### Start the network topology:
+### Our topology
+The topology is very similar to the one in the original repository. Basically each of the elements in our network runs in a separate Docker host.
 
-#### Running example1.py
-```
-$ sudo python3 example1.py
-```
+This means that we will have 3 basic hosts (UE, gNB and CP), plus one additional host per slice (UPF).
+A PDU session will be initiated for each slice.
+The current configuration links all UPF docker hosts to the second switch (S2). 
 
-The scenario includes 5 DockerHosts as shown in the figure below.
-The UE starts two PDU session one for each slice defined in the core network.
+<img src="./images/mytopology.jpg" title="./images/mytopology.jpg" width=1000px></img>
 
-<img src="./images/topology.jpg" title="./images/topology.jpg" width=1000px></img>
 
-Notice that at the first run the set-up should not work due to missing information in the 5GC.
-To configure it we should leverage the WebUI by opening the following page in a browser on the host OS.
-```
-http://<VM_IP>:3000/
+### Running the example script
+```bash
+$ sudo python3 example4.py
 ```
 
-The configuration is as follows:
+#### Configuring the slices
 
-UE information:
-- IMSI = 001011234567895
-- USIM Type = OP
-- Operator Key (OPc/OP) = 11111111111111111111111111111111
-- key: '8baf473f2f8fd09487cccbd7097c6862'
+When running the script, you will be prompted through the command line to insert the necessary data to personalize your desired slice configuration. 
+First we will be asked the desired number of slices. Then, for each slice, the necessary fields are: 
+- **DNN** (Data Network Name): it's the counterpart of APN in LTE. It is used to identify and route traffic to a specific network slice.
+- **Bandwidth**: indicates the session AMBR (Aggregate Maximum Bit Rate) in Mbps. For now, we apply the same value downlink and uplink.
 
+The values for subnet and IP addresses will be automatically assigned as showed in the topology. 
+
+An example of a possible command line interaction for the configuration of a single slice would be the following: 
+```bash
+$ sudo python3 example4.py
+enter number of slices: 1
+enter dnn for slice 1: internet
+enter bandwidth (Mbps) for slice 1: 2
+```
+
+Once the personalized details have been inserted, the program automatically writes the necessary values in the network function protocol and component configuration YAML files: 
+- SMF (Session Management Function)
+- AMF (Access & Mobility Management Function)
+- NSSF (Network Slice Selection Function)
+- UE (User Equipment)
+- GNB (gNodeB Station)
+- UPF (User Plane Function)
+
+The configuration would result as follows:
+
+```
 Slice 1 configuration
 - SST: 1
 - SD: 000001
 - DNN: internet
 - Session-AMBR Downlink: 2 Mbps
 - Session-AMBR Uplink: 2 Mbps
-
-Slice 2 configuration
-- SST: 2
-- SD: 000001
-- DNN: mec
-- Session-AMBR Downlink: 10 Mbps
-- Session-AMBR Uplink: 10 Mbps
-
-The configuration should look like this:
-
-<img src="./images/WebUI_config.JPG" title="./images/WebUI_config.JPG" width=800px></img>
-
-You can now proceed testing the environment as below
-
-
-#### Running example2.py
-This example creates the same environment of example1.py but the open5GS control plane configuration is done programmatically without using the webUI. (Note: adapted the python class in the open5gs repo [here](https://github.com/open5gs/open5gs/blob/main/misc/db/python/Open5GS.py) )
-
-Disclaimer: all the previous subcribers registered with the webUI will be lost and a new one will be created.
-
-```
-$ sudo python3 example2.py
 ```
 
+#### Setting up the network
 
 
-### Check UE connections
+After a while, the Docker hosts will be created, subscriber information will be updated and applied, and the topology will be initiated using Mininet. 
 
-Notice how the UE DockerHost has been initiated running `open5gs_ue_init.sh` which, based on the configuration provided in `open5gs-ue.yaml`, creates two default UE connections.
+Once the network has been started, some automatic tests will be performed to check everything is working as expected.
+
+#### Testing the network
+
+Notice how the UE Docker host has been initiated running `open5gs_ue_init.sh` which, based on the configuration provided in `open5gs-ue.yaml`, creates the UE connections.
 The sessions are started specifying the slice, not the APN. The APN, and thus the associated UPF, is selected by the 5GC since, in `subscriber_profile.json`, a slice is associated to a session with specific DNN.
 
-Enter the container and verify UE connections:
+The program enters the UE container and verifies the UE connections by running:
 
 ``` 
-$ ./enter_container.sh ue
-
-# ifconfig
+$ ue ifconfig
 ``` 
 
-You should see interfaces uesimtun0 (for the upf_cld) and uesimtun1 (for the upf_mec) active.
+You will be able to see the output of the command. There, you should find an interface for every defined slice. Each of those configurations should look similar to the following:
 
 ```
 uesimtun0: flags=369<UP,POINTOPOINT,NOTRAILERS,RUNNING,PROMISC>  mtu 1400
@@ -112,104 +112,33 @@ uesimtun0: flags=369<UP,POINTOPOINT,NOTRAILERS,RUNNING,PROMISC>  mtu 1400
         RX errors 0  dropped 0  overruns 0  frame 0
         TX packets 0  bytes 0 (0.0 B)
         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-uesimtun1: flags=369<UP,POINTOPOINT,NOTRAILERS,RUNNING,PROMISC>  mtu 1400
-        inet 10.46.0.2  netmask 255.255.255.255  destination 10.46.0.2
-        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 0  bytes 0 (0.0 B)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 ```
 
-
-Start a ping test to check connectivity:
+The program will also start a **ping test** from each interface to **check connectivity**.
+(We should keep in mind that the program will perform these tests for each of the slices. Here we can only find the example command run for a single slice for simplicity):
 ``` 
-# ping -c 3 -n -I uesimtun0 www.google.com
-# ping -c 3 -n -I uesimtun1 www.google.com
-``` 
-
-### Test the environment
-
-In two terminals start two tcpdump for both upf_cld and upf_mec
-
-``` 
-$ ./start_tcpdump.sh upf_cld
-$ ./start_tcpdump.sh upf_mec
+# ue ping -c 3 -n -I uesimtun0 www.google.com
 ``` 
 
-#### Latency test
-Enter in the UE container:
+Finally, a **bandwidth test** is started:
 ``` 
-$ ./enter_container.sh ue
-``` 
-
-Start ping test on the interfaces related to the two slices:
-``` 
-# ping -c 3 -n -I uesimtun0 10.45.0.1
-# ping -c 3 -n -I uesimtun1 10.46.0.1
+# ue iperf3 -c 10.45.0.1 -B 10.45.0.2 -t 5
 ``` 
 
-Observe the Round Trip Time using uesimtun0 (slice 1 - reaching the UPF in the "cloud DC" with DNN="internet" ) and ueransim1 (slice 2 - reaching the UPF in the 'mec DC' with DNN="mec")
+You should be able to observe how the data-rate follows the maximum data-rate specified for the slices as an input.
 
 
-#### Bandwidth test
+#### To further test the environment
 
-Enter in the UE container:
-``` 
-$ ./enter_container.sh ue
-``` 
-
-Start bandwidth test leveraging the two slices:
-``` 
-# iperf3 -c 10.45.0.1 -B 10.45.0.2 -t 5
-# iperf3 -c 10.46.0.1 -B 10.46.0.2 -t 5
-``` 
-
-Observe how the data-rate in the two cases follows the maximum data-rate specified for the two slices (2 Mbps for sst 1 and 10Mbps for sst 2).
-
-
-#### Change the maximum bit-rate available for one slice:
-
-Here we change the slice profiles updating the maximum bit-rate and observe the results on the iperf test.
-
-##### Alternative 1
-Open the open5gs WebUI and change the DL/UL bandwidth as follows:
-- for sst 1: MBR DL/UL = 10 Mbps
-- for sst 2: MBR DL/UL = 20 Mbps
-
-##### Alternative 2
-Run the script `update_subscribers.py`.
-
-##### Test new connections
-
-Enter in the UE container:
-``` 
-$ ./enter_container.sh ue
-``` 
-
-Start new PDU sessions in the UE: 
-
-```
-# ./nr-cli imsi-001011234567895
-$ ps-establish IPv4 --sst 1 --sd 1
-$ ps-establish IPv4 --sst 2 --sd 1
-$ status
-```
-
-Now you should see 4 interfaces `uesimtun1-4` created. This is because the old UE connections are kept with the previous settings as long as we do not remove them.
-
-Start again a bandwidth test in the UE leveraging the new PDU session. NB: use the IPs of the inferfaces for the new sessions (`uesimtun3` and `uesimtun4`):
-
-``` 
-iperf3 -c 10.45.0.1 -B 10.45.0.3 -t 5
-iperf3 -c 10.46.0.1 -B 10.46.0.3 -t 5
-```
-
-From the results you should observe that the achieved bit-rate have changed accordingly to the new setting. 
-
+Those are all the automatic tests performed by the program, but we can further test our environment as suggested in the original repo. 
 
 ### Contact
+
+Automatic slice creation: 
+- Marta Moreno - marta.moreno@studenti.unitn.it
+
+Supervised by: 
+- Fabrizio Granelli - fabrizio.granelli@unitn.it
 
 Main maintainer:
 - Riccardo Fedrizzi - rfedrizzi@fbk.eu

@@ -26,11 +26,11 @@ if __name__ == "__main__":
 
     net = Containernet(controller=Controller, link=TCLink)
 
-    slices = {}  # key will be the sst-1, fields: dnn, bw, ip, subnet
+    slices = {}
     n_slices = input('enter number of slices: ')
     ip = 112
     subnet = 45
-    for i in range(int(n_slices)):  # repeats n_slices times, not n-1
+    for i in range(int(n_slices)):
         dnn = input('enter dnn for slice ' + str(i + 1) + ': ')
         bw = input('enter bandwidth (Mbps) for slice ' + str(i + 1) + ': ')
         slices[i] = {
@@ -42,10 +42,8 @@ if __name__ == "__main__":
         ip += 1
         subnet += 1
 
-    # edit configuration files
     info("*** Editing configuration files\n")
 
-    # edit smf.yaml (clear fixed)
     with open('./open5gs/config/smf.yaml', 'r') as read_file:
         contents = yaml.safe_load(read_file)
         contents['smf']['subnet'].clear()
@@ -61,11 +59,9 @@ if __name__ == "__main__":
                 'addr': slices[i]['ip'],
                 'dnn': slices[i]['dnn']
             }
-    # fix output file
     with open('./open5gs/config/smf.yaml', 'w') as dump_file:
         yaml.dump(contents, dump_file)
 
-    # edit nssf.yaml (clear fixed)
     with open('./open5gs/config/nssf.yaml', 'r') as read_file:
         contents = yaml.safe_load(read_file)
         contents['nssf']['nsi'].clear()
@@ -76,11 +72,9 @@ if __name__ == "__main__":
                 'port': 7777,
                 's_nssai': {'sst': i + 1, 'sd': 1}
             }
-    # fix output file
     with open('./open5gs/config/nssf.yaml', 'w') as dump_file:
         yaml.dump(contents, dump_file)
 
-    # edit amf.yaml (clear fixed)
     with open('./open5gs/config/amf.yaml', 'r') as read_file:
         contents = yaml.safe_load(read_file)
         contents['amf']['guami'][0]['plmn_id'] = {'mcc': '001', 'mnc': '01'}
@@ -90,11 +84,9 @@ if __name__ == "__main__":
         contents['amf']['plmn_support'][0]['s_nssai'].extend([None] * int(n_slices))
         for i in range(int(n_slices)):
             contents['amf']['plmn_support'][0]['s_nssai'][i] = {'sst': i + 1, 'sd': 1}
-    # fix output file
     with open('./open5gs/config/amf.yaml', 'w') as dump_file:
         yaml.dump(contents, dump_file)
 
-    # edit open5gs-ue.yaml (clear fixed)
     with open('./ueransim/config/open5gs-ue.yaml', 'r') as read_file:
         contents = yaml.safe_load(read_file)
         contents['sessions'].clear()
@@ -111,18 +103,15 @@ if __name__ == "__main__":
                 'sst': i + 1,
                 'sd': 1
             }
-    # fix output file
     with open('./ueransim/config/open5gs-ue.yaml', 'w') as dump_file:
         yaml.dump(contents, dump_file)
 
-    # edit open5gs-gnb.yaml (clear fixed)
     with open('./ueransim/config/open5gs-gnb.yaml', 'r') as read_file:
         contents = yaml.safe_load(read_file)
         contents['slices'].clear()
         contents['slices'].extend([None] * int(n_slices))
         for i in range(int(n_slices)):
             contents['slices'][i] = {'sst': i + 1, 'sd': 1}
-    # fix output file
     with open('./ueransim/config/open5gs-gnb.yaml', 'w') as dump_file:
         yaml.dump(contents, dump_file)
 
@@ -140,7 +129,6 @@ if __name__ == "__main__":
                      'dev': 'ogstun'}
                 ]
             }
-        # fix output file into correct folder
         with open('./open5gs/config/upf_' + slices[i]['dnn'] + '.yaml', 'w') as dump_file:
             yaml.dump(contents, dump_file)
 
